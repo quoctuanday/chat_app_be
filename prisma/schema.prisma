@@ -8,6 +8,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// --------------------- USER ---------------------
 model User {
   user_id    String     @id @default(uuid())
   username   String     @unique
@@ -15,6 +16,7 @@ model User {
   password   String
   avatar_url String?
   status     UserStatus @default(offline)
+  last_active DateTime?
   created_at DateTime   @default(now())
 
   // Quan hệ
@@ -22,9 +24,10 @@ model User {
   conversationMembers  ConversationMember[]
   messages             Message[]
   messageStatuses      MessageStatus[]
-
-  friendships Friendship[] @relation("UserFriendships") // user_id
-  friendsWith Friendship[] @relation("UserFriendsWith") // friend_id
+  friendships          Friendship[] @relation("UserFriendships")
+  friendsWith          Friendship[] @relation("UserFriendsWith")
+  notifications        Notification[]
+  typingStatuses       TypingStatus[]
 }
 
 enum UserStatus {
@@ -33,18 +36,20 @@ enum UserStatus {
   busy
 }
 
+// --------------------- CONVERSATION ---------------------
 model Conversation {
   conversation_id String           @id @default(uuid())
   type            ConversationType
   name            String?
   created_at      DateTime         @default(now())
-
-  // user tạo cuộc trò chuyện
-  created_by    User? @relation("CreatedConversations", fields: [created_by_id], references: [user_id])
-  created_by_id String?
+  updated_at      DateTime         @default(now()) @updatedAt
+  is_archived     Boolean          @default(false)
+  created_by_id   String?
+  created_by      User? @relation("CreatedConversations", fields: [created_by_id], references: [user_id])
 
   members  ConversationMember[]
   messages Message[]
+  typingStatuses TypingStatus[]
 }
 
 enum ConversationType {
@@ -52,6 +57,7 @@ enum ConversationType {
   group
 }
 
+// --------------------- CONVERSATION MEMBER ---------------------
 model ConversationMember {
   conversation    Conversation @relation(fields: [conversation_id], references: [conversation_id])
   conversation_id String
@@ -59,6 +65,8 @@ model ConversationMember {
   user_id         String
   role            MemberRole   @default(member)
   joined_at       DateTime     @default(now())
+  last_read_message_id String?
+  is_muted        Boolean      @default(false)
 
   @@id([conversation_id, user_id])
 }
@@ -68,6 +76,7 @@ enum MemberRole {
   admin
 }
 
+// --------------------- MESSAGE ---------------------
 model Message {
   message_id      String       @id @default(uuid())
   conversation    Conversation @relation(fields: [conversation_id], references: [conversation_id])
@@ -77,6 +86,12 @@ model Message {
   content         String?
   message_type    MessageType  @default(text)
   created_at      DateTime     @default(now())
+  is_deleted      Boolean      @default(false)
+  reactions       Json?
+
+  reply_to        Message?     @relation("MessageReplies", fields: [reply_to_id], references: [message_id])
+  reply_to_id     String?
+  replies         Message[]    @relation("MessageReplies")
 
   statuses    MessageStatus[]
   attachments Attachment[]
@@ -89,6 +104,7 @@ enum MessageType {
   system
 }
 
+// --------------------- MESSAGE STATUS ---------------------
 model MessageStatus {
   message    Message  @relation(fields: [message_id], references: [message_id])
   message_id String
@@ -106,6 +122,7 @@ enum Status {
   read
 }
 
+// --------------------- FRIENDSHIP ---------------------
 model Friendship {
   user       User         @relation("UserFriendships", fields: [user_id], references: [user_id])
   user_id    String
@@ -114,6 +131,7 @@ model Friendship {
   status     FriendStatus @default(pending)
   created_at DateTime     @default(now())
   updated_at DateTime     @default(now()) @updatedAt
+  blocked_by_user_id String?
 
   @@id([user_id, friend_id])
 }
@@ -124,6 +142,7 @@ enum FriendStatus {
   blocked
 }
 
+// --------------------- ATTACHMENT ---------------------
 model Attachment {
   attachment_id String    @id @default(uuid())
   message       Message   @relation(fields: [message_id], references: [message_id])
@@ -131,6 +150,7 @@ model Attachment {
   file_url      String
   file_type     FileType  @default(file)
   file_size     Int?
+  thumbnail_url String?
   uploaded_at   DateTime  @default(now())
 }
 
@@ -139,4 +159,26 @@ enum FileType {
   video
   file
   audio
+}
+
+// --------------------- TYPING STATUS ---------------------
+model TypingStatus {
+  id             String       @id @default(uuid())
+  conversation   Conversation @relation(fields: [conversation_id], references: [conversation_id])
+  conversation_id String
+  user           User         @relation(fields: [user_id], references: [user_id])
+  user_id        String
+  is_typing      Boolean      @default(false)
+  updated_at     DateTime     @default(now()) @updatedAt
+}
+
+// --------------------- NOTIFICATION ---------------------
+model Notification {
+  notification_id String   @id @default(uuid())
+  user            User     @relation(fields: [user_id], references: [user_id])
+  user_id         String
+  type            String
+  payload         Json
+  is_read         Boolean  @default(false)
+  created_at      DateTime @default(now())
 }

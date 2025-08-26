@@ -1,11 +1,29 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { AddFriendDto } from './dto/add-friend.dto';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(UsersService.name);
+  async updateUserStatus(
+    userId: string,
+    status: 'online' | 'offline' | 'busy',
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { user_id: userId },
+    });
+    if (!user) {
+      this.logger.warn(`User not found: ${userId}`);
+      return null;
+    }
+    return this.prisma.user.update({
+      where: { user_id: userId },
+      data: { status },
+    });
+  }
   async createUser(dto: CreateUserDto) {
     const saltRounds = 10;
     console.log(dto);
@@ -55,5 +73,44 @@ export class UsersService {
   `;
 
     return this.prisma.$queryRawUnsafe(query, ...params);
+  }
+  async addFriend(userId: string, dto: AddFriendDto) {
+    if (userId === dto.friend_id) {
+      throw new BadRequestException('Bạn không thể kết bạn với chính mình');
+    }
+
+    // kiểm tra xem đã tồn tại chưa
+    const existing = await this.prisma.friendship.findUnique({
+      where: {
+        user_id_friend_id: {
+          user_id: userId,
+          friend_id: dto.friend_id,
+        },
+      },
+    });
+
+    if (existing) {
+      throw new BadRequestException('Bạn đã gửi lời mời hoặc đã là bạn bè');
+    }
+
+    return this.prisma.friendship.create({
+      data: {
+        user_id: userId,
+        friend_id: dto.friend_id,
+        status: 'pending',
+      },
+    });
+  }
+
+  async acceptFriend(userId: string, friendId: string) {
+    return this.prisma.friendship.update({
+      where: {
+        user_id_friend_id: {
+          user_id: friendId,
+          friend_id: userId,
+        },
+      },
+      data: { status: 'accepted' },
+    });
   }
 }

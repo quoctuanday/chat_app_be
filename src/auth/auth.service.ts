@@ -29,4 +29,12 @@ export class AuthService {
       access_token: await this.jwtService.signAsync(payload),
     };
   }
+
+  async getProfile(userId: string) {
+    const user = await this.usersService.findUser({ user_id: userId });
+    if (!user) return null;
+
+    // loại bỏ password
+    return user;
+  }
 }
