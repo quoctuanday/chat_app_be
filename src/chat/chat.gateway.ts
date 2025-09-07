@@ -24,14 +24,24 @@ export class ChatGateway {
     @MessageBody()
     data: {
       senderId: string;
-      dto: any;
+      conversation_id: string;
+      content?: string;
+      reply_to_id?: string;
+      message_type?: 'text' | 'image' | 'file' | 'system';
     },
   ) {
-    const message = await this.chatService.createMessage(
-      data.senderId,
-      data.dto,
+    const message = await this.chatService.createMessage(data.senderId, {
+      conversation_id: data.conversation_id,
+      content: data.content,
+      reply_to_id: data.reply_to_id,
+      message_type: data.message_type,
+    });
+
+    const fullMessage = await this.chatService.getMessageById(
+      message.message_id,
     );
-    this.server.to(data.dto.conversation_id).emit('newMessage', message);
+
+    this.server.to(data.conversation_id).emit('newMessage', fullMessage);
   }
 
   @SubscribeMessage('updateMessage')

@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
@@ -28,6 +29,12 @@ export class ConversationsController {
   @Get()
   async findAll(@Req() req: any) {
     return this.conversationsService.findAllByUser(req.user.userId);
+  }
+
+  @Get('search')
+  async searchConversations(@Req() req, @Query() query: any) {
+    const userId = req.user.userId;
+    return this.conversationsService.searchConversations(userId, query);
   }
 
   // conservation detail

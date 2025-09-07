@@ -53,6 +53,24 @@ export class ChatService {
     });
   }
 
+  async getMessageById(messageId: string) {
+    const message = await this.prisma.message.findUnique({
+      where: { message_id: messageId },
+      include: {
+        sender: true,
+        attachments: true,
+        reply_to: true,
+        statuses: true,
+      },
+    });
+
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+
+    return message;
+  }
+
   async updateMessage(messageId: string, dto: UpdateMessageDto) {
     const message = await this.prisma.message.findUnique({
       where: { message_id: messageId },

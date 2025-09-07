@@ -10,17 +10,31 @@ import {
   Req,
 } from '@nestjs/common';
 import { ChatService } from './chat.service';
+import { ChatGateway } from './chat.gateway';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 
 @Controller('api/message')
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly chatGateway: ChatGateway,
+  ) {}
 
   @Post('')
   async createMessage(@Req() req, @Body() dto: CreateMessageDto) {
+    console.log(dto);
     const senderId = req.user.userId;
-    return this.chatService.createMessage(senderId, dto);
+    const message = await this.chatService.createMessage(senderId, dto);
+
+    const fullMessage = await this.chatService.getMessageById(
+      message.message_id,
+    );
+    this.chatGateway.server
+      .to(dto.conversation_id)
+      .emit('newMessage', fullMessage);
+
+    return fullMessage;
   }
 
   @Get(':conversationId')

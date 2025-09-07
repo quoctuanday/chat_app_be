@@ -89,6 +89,77 @@ export class ConversationsService {
     return conversations.map((c) => this.toConversationResponse(c));
   }
 
+  //search by query
+  async searchConversations(userId: string, where: any) {
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    conditions.push(`EXISTS (
+    SELECT 1 FROM ConversationMember cm
+    WHERE cm.conversation_id = c.conversation_id
+    AND cm.user_id = ?
+  )`);
+    params.push(userId);
+
+    if (where.name) {
+      const lowerName = `%${where.name.toLowerCase()}%`;
+      conditions.push(`(
+      (c.type = 'group' AND LOWER(c.name) LIKE ?)
+      OR
+      (c.type = 'private' AND EXISTS (
+        SELECT 1 FROM ConversationMember cm2
+        JOIN User u2 ON u2.user_id = cm2.user_id
+        WHERE cm2.conversation_id = c.conversation_id
+        AND cm2.user_id <> ?
+        AND LOWER(u2.username) LIKE ?
+      ))
+    )`);
+      params.push(lowerName, userId, lowerName);
+    }
+
+    if (where.type) {
+      conditions.push(`c.type = ?`);
+      params.push(where.type);
+    }
+
+    if (where.memberId) {
+      conditions.push(`EXISTS (
+      SELECT 1 FROM ConversationMember cm3
+      WHERE cm3.conversation_id = c.conversation_id
+      AND cm3.user_id = ?
+    )`);
+      params.push(where.memberId);
+    }
+
+    const query = `
+    SELECT c.conversation_id
+    FROM Conversation c
+    ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
+    ORDER BY c.updated_at DESC
+  `;
+
+    // chỉ lấy id trước
+    const rows = await this.prisma.$queryRawUnsafe<
+      { conversation_id: string }[]
+    >(query, ...params);
+
+    // load lại bằng prisma -> trả về DTO chuẩn
+    const conversations = await this.prisma.conversation.findMany({
+      where: { conversation_id: { in: rows.map((r) => r.conversation_id) } },
+      include: {
+        members: { include: { user: true } },
+        messages: {
+          orderBy: { created_at: 'desc' },
+          take: 1,
+          include: { sender: true },
+        },
+      },
+      orderBy: { updated_at: 'desc' },
+    });
+
+    return conversations.map((c) => this.toConversationResponse(c));
+  }
+
   // Lấy chi tiết 1 conversation
   async findOne(
     conversationId: string,
