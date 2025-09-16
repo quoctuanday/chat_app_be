@@ -12,6 +12,7 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AddFriendDto } from './dto/add-friend.dto';
 import { Public } from '../auth/decorators/public.decorator';
+import { UpdateUserDto } from 'src/users/dto/update-user.dto';
 
 @Controller('api/users')
 export class UsersController {
@@ -30,6 +31,12 @@ export class UsersController {
   @Post('createUser')
   async create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.createUser(createUserDto);
+  }
+
+  @Patch('update')
+  async update(@Req() req, @Body() dto: UpdateUserDto) {
+    const userId = req.user.userId;
+    return this.usersService.updateUser(userId, dto);
   }
 
   @Post('add-friend')

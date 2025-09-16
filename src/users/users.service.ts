@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AddFriendDto } from './dto/add-friend.dto';
 import * as bcrypt from 'bcrypt';
+import { UpdateUserDto } from 'src/users/dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
@@ -24,6 +25,24 @@ export class UsersService {
       data: { status },
     });
   }
+
+  async updateUser(userId: string, dto: UpdateUserDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { user_id: userId },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User không tồn tại');
+    }
+
+    const updateData: any = { ...dto };
+
+    return this.prisma.user.update({
+      where: { user_id: userId },
+      data: updateData,
+    });
+  }
+
   async createUser(dto: CreateUserDto) {
     const saltRounds = 10;
     console.log(dto);

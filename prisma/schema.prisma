@@ -14,7 +14,7 @@ model User {
   username   String     @unique
   email      String?    @unique
   password   String
-  avatar_url String?
+  avatar_url String? @db.Text
   status     UserStatus @default(offline)
   last_active DateTime?
   created_at DateTime   @default(now())
