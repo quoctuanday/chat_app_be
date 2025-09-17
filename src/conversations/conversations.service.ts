@@ -39,7 +39,7 @@ export class ConversationsService {
         include: { members: { include: { user: true } } },
       });
 
-      return this.toConversationResponse(conversation);
+      return this.toConversationResponse(conversation, userId);
     }
 
     if (dto.type === 'group') {
@@ -65,7 +65,7 @@ export class ConversationsService {
         include: { members: { include: { user: true } } },
       });
 
-      return this.toConversationResponse(conversation);
+      return this.toConversationResponse(conversation, userId);
     }
 
     throw new Error('Invalid conversation type');
@@ -86,7 +86,7 @@ export class ConversationsService {
       orderBy: { updated_at: 'desc' },
     });
 
-    return conversations.map((c) => this.toConversationResponse(c));
+    return conversations.map((c) => this.toConversationResponse(c, userId));
   }
 
   //search by query
@@ -157,7 +157,7 @@ export class ConversationsService {
       orderBy: { updated_at: 'desc' },
     });
 
-    return conversations.map((c) => this.toConversationResponse(c));
+    return conversations.map((c) => this.toConversationResponse(c, userId));
   }
 
   // Lấy chi tiết 1 conversation
@@ -182,7 +182,7 @@ export class ConversationsService {
     if (!isMember)
       throw new ForbiddenException('You are not a member of this conversation');
 
-    return this.toConversationResponse(conversation);
+    return this.toConversationResponse(conversation, userId);
   }
 
   // Update conversation (chỉ admin được sửa)
@@ -208,7 +208,7 @@ export class ConversationsService {
       include: { members: { include: { user: true } } },
     });
 
-    return this.toConversationResponse(conversation);
+    return this.toConversationResponse(conversation, userId);
   }
 
   // Add member
@@ -265,7 +265,29 @@ export class ConversationsService {
   }
 
   // --- Mapper: Convert Prisma → DTO response
-  private toConversationResponse(c: any): ConversationResponseDto {
+  private toConversationResponse(
+    c: any,
+    currentUserId: string,
+  ): ConversationResponseDto {
+    // lấy tin nhắn cuối cùng
+    const lastMsg = c.messages?.[0];
+
+    // kiểm tra xem tin cuối đã seen chưa (MessageStatus)
+    const lastMsgSeen =
+      lastMsg?.statuses?.some(
+        (s: any) => s.user_id === currentUserId && s.status === 'read',
+      ) ?? false;
+
+    // đếm số tin chưa đọc của user hiện tại
+    const unreadCount = c.messages
+      ? c.messages.reduce((count: number, msg: any) => {
+          const status = msg.statuses?.find(
+            (s: any) => s.user_id === currentUserId,
+          );
+          return status?.status === 'unread' ? count + 1 : count;
+        }, 0)
+      : 0;
+
     return {
       conversation_id: c.conversation_id,
       type: c.type,
@@ -279,19 +301,20 @@ export class ConversationsService {
         role: m.role,
         joined_at: m.joined_at,
       })),
-      lastMessage: c.messages?.[0]
+      lastMessage: lastMsg
         ? {
-            message_id: c.messages[0].message_id,
-            content: c.messages[0].content,
-            created_at: c.messages[0].created_at,
+            message_id: lastMsg.message_id,
+            content: lastMsg.content,
+            created_at: lastMsg.created_at,
             sender: {
-              user_id: c.messages[0].sender.user_id,
-              username: c.messages[0].sender.username,
-              avatar_url: c.messages[0].sender.avatar_url,
+              user_id: lastMsg.sender.user_id,
+              username: lastMsg.sender.username,
+              avatar_url: lastMsg.sender.avatar_url,
             },
+            seen: lastMsgSeen,
           }
         : undefined,
-      unreadCount: 0, // TODO: tính sau
+      unreadCount,
       initials: c.name?.slice(0, 2).toUpperCase() || 'NA',
     };
   }

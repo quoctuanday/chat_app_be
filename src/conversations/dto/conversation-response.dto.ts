@@ -19,6 +19,7 @@ export class LastMessageDto {
     username: string;
     avatar_url?: string | null;
   };
+  seen: boolean;
 }
 
 export class ConversationResponseDto {
@@ -32,6 +33,7 @@ export class ConversationResponseDto {
 
   lastMessage?: LastMessageDto;
   unreadCount: number;
+
   online?: boolean;
   initials: string;
 }

@@ -15,6 +15,7 @@ model User {
   email      String?    @unique
   password   String
   avatar_url String? @db.Text
+  cover_url    String? @db.Text 
   status     UserStatus @default(offline)
   last_active DateTime?
   created_at DateTime   @default(now())
@@ -42,6 +43,7 @@ model Conversation {
   type            ConversationType
   name            String?
   avatar_url      String? 
+  background_url  String? @db.Text
   created_at      DateTime         @default(now())
   updated_at      DateTime         @default(now()) @updatedAt
   is_archived     Boolean          @default(false)
@@ -120,6 +122,7 @@ model MessageStatus {
 enum Status {
   sent
   delivered
+  unread
   read
 }
 

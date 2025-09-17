@@ -15,6 +15,7 @@ export class ChatService {
 
     const conversation = await this.prisma.conversation.findUnique({
       where: { conversation_id },
+      include: { members: true },
     });
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
@@ -27,6 +28,12 @@ export class ChatService {
         content,
         reply_to_id,
         message_type: message_type ?? 'text',
+        statuses: {
+          create: conversation.members.map((m) => ({
+            user_id: m.user_id,
+            status: m.user_id === senderId ? 'read' : 'unread',
+          })),
+        },
       },
       include: {
         sender: true,
@@ -103,5 +110,17 @@ export class ChatService {
       where: { message_id: messageId },
       data: { is_deleted: true },
     });
+  }
+  async markAllAsRead(conversationId: string, userId: string) {
+    await this.prisma.messageStatus.updateMany({
+      where: {
+        message: { conversation_id: conversationId },
+        user_id: userId,
+        status: 'unread',
+      },
+      data: { status: 'read' },
+    });
+
+    return true;
   }
 }
